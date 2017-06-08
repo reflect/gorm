@@ -76,10 +76,6 @@ func (s *search) Order(value interface{}, reorder ...bool) *search {
 var distinctSQLRegexp = regexp.MustCompile(`(?i)distinct[^a-z]+[a-z]+`)
 
 func (s *search) Select(query interface{}, args ...interface{}) *search {
-	if distinctSQLRegexp.MatchString(fmt.Sprint(query)) {
-		s.ignoreOrderQuery = true
-	}
-
 	s.selects = map[string]interface{}{"query": query, "args": args}
 	return s
 }
