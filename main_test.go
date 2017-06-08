@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/erikstmartin/go-testdb"
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/mssql"
-	_ "github.com/jinzhu/gorm/dialects/mysql"
-	"github.com/jinzhu/gorm/dialects/postgres"
-	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"github.com/jinzhu/now"
+	"github.com/reflect/gorm"
+	_ "github.com/reflect/gorm/dialects/mssql"
+	_ "github.com/reflect/gorm/dialects/mysql"
+	"github.com/reflect/gorm/dialects/postgres"
+	_ "github.com/reflect/gorm/dialects/sqlite"
 )
 
 var (
@@ -59,7 +59,7 @@ func OpenTestConnection() (db *gorm.DB, err error) {
 		db, err = gorm.Open("foundation", "dbname=gorm port=15432 sslmode=disable")
 	case "mssql":
 		fmt.Println("testing mssql...")
-		db, err = gorm.Open("mssql", "server=SERVER_HERE;database=rogue;user id=USER_HERE;password=PW_HERE;port=1433")
+		db, err = gorm.Open("mssql", "server=127.0.0.1;database=gorm;user id=sa;password=yourStrong(!)Password;port=1433")
 	default:
 		fmt.Println("testing sqlite3...")
 		db, err = gorm.Open("sqlite3", filepath.Join(os.TempDir(), "gorm.db"))
