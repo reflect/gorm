@@ -3,6 +3,9 @@ package postgres
 import (
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
+	"errors"
+	"fmt"
 
 	_ "github.com/lib/pq"
 	"github.com/lib/pq/hstore"
@@ -51,4 +54,24 @@ func (h *Hstore) Scan(value interface{}) error {
 	}
 
 	return nil
+}
+
+// JSONb Postgresql's JSONB data type
+type JSONb struct {
+	json.RawMessage
+}
+
+// Value get value of JSONb
+func (j JSONb) Value() (driver.Value, error) {
+	return j.MarshalJSON()
+}
+
+// Scan scan value into JSONb
+func (j *JSONb) Scan(value interface{}) error {
+	bytes, ok := value.([]byte)
+	if !ok {
+		return errors.New(fmt.Sprint("Failed to unmarshal JSONB value:", value))
+	}
+
+	return json.Unmarshal(bytes, j)
 }
