@@ -36,11 +36,14 @@ func deleteCallback(scope *Scope) {
 		deletedAtField, hasDeletedAtField := scope.FieldByName("DeletedAt")
 
 		if !scope.Search.Unscoped && hasDeletedAtField {
+			t := NowFunc()
+
+			scope.SetColumn("DeletedAt", t)
 			scope.Raw(fmt.Sprintf(
 				"UPDATE %v SET %v=%v%v%v",
 				scope.QuotedTableName(),
 				scope.Quote(deletedAtField.DBName),
-				scope.AddToVars(NowFunc()),
+				scope.AddToVars(t),
 				addExtraSpaceIfExist(scope.CombinedConditionSql()),
 				addExtraSpaceIfExist(extraOption),
 			)).Exec()
