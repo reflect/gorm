@@ -285,7 +285,7 @@ func (association *Association) Count() int {
 
 	if relationship.PolymorphicType != "" {
 		query = query.Where(
-			fmt.Sprintf("%v.%v = ?", scope.New(fieldValue).QuotedTableName(), scope.Quote(relationship.PolymorphicDBName)),
+			fmt.Sprintf("%v.%v = ?", scope.New(fieldValue).TableAlias(), scope.Quote(relationship.PolymorphicDBName)),
 			relationship.PolymorphicValue,
 		)
 	}

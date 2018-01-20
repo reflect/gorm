@@ -315,16 +315,21 @@ func (scope *Scope) TableName() string {
 	return scope.GetModelStruct().TableName(scope.db.Model(scope.Value))
 }
 
-// QuotedTableName return quoted table name
-func (scope *Scope) QuotedTableName() (name string) {
+func (scope *Scope) QuotedTableName() string {
 	if scope.Search != nil && len(scope.Search.tableName) > 0 {
-		if strings.Index(scope.Search.tableName, " ") != -1 {
-			return scope.Search.tableName
-		}
 		return scope.Quote(scope.Search.tableName)
 	}
 
 	return scope.Quote(scope.TableName())
+}
+
+// TableAlias return quoted table name
+func (scope *Scope) TableAlias() (name string) {
+	if scope.Search != nil && len(scope.Search.tableAlias) > 0 {
+		return scope.Search.tableAlias
+	}
+
+	return scope.QuotedTableName()
 }
 
 // CombinedConditionSql return combined condition sql
@@ -508,7 +513,7 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields []*Field) {
 }
 
 func (scope *Scope) primaryCondition(value interface{}) string {
-	return fmt.Sprintf("(%v.%v = %v)", scope.QuotedTableName(), scope.Quote(scope.PrimaryKey()), value)
+	return fmt.Sprintf("(%v.%v = %v)", scope.TableAlias(), scope.Quote(scope.PrimaryKey()), value)
 }
 
 func (scope *Scope) buildWhereCondition(clause map[string]interface{}) (str string) {
@@ -522,15 +527,15 @@ func (scope *Scope) buildWhereCondition(clause map[string]interface{}) (str stri
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, sql.NullInt64:
 		return scope.primaryCondition(scope.AddToVars(value))
 	case []int, []int8, []int16, []int32, []int64, []uint, []uint8, []uint16, []uint32, []uint64, []string, []interface{}:
-		str = fmt.Sprintf("(%v.%v IN (?))", scope.QuotedTableName(), scope.Quote(scope.PrimaryKey()))
+		str = fmt.Sprintf("(%v.%v IN (?))", scope.TableAlias(), scope.Quote(scope.PrimaryKey()))
 		clause["args"] = []interface{}{value}
 	case map[string]interface{}:
 		var sqls []string
 		for key, value := range value {
 			if value != nil {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", scope.QuotedTableName(), scope.Quote(key), scope.AddToVars(value)))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", scope.TableAlias(), scope.Quote(key), scope.AddToVars(value)))
 			} else {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v IS NULL)", scope.QuotedTableName(), scope.Quote(key)))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v IS NULL)", scope.TableAlias(), scope.Quote(key)))
 			}
 		}
 		return strings.Join(sqls, " AND ")
@@ -539,7 +544,7 @@ func (scope *Scope) buildWhereCondition(clause map[string]interface{}) (str stri
 		newScope := scope.New(value)
 		for _, field := range newScope.Fields() {
 			if !field.IsIgnored && !field.IsBlank {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", scope.QuotedTableName(), scope.Quote(field.DBName), scope.AddToVars(field.Field.Interface())))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v = %v)", scope.TableAlias(), scope.Quote(field.DBName), scope.AddToVars(field.Field.Interface())))
 			}
 		}
 		return strings.Join(sqls, " AND ")
@@ -547,6 +552,13 @@ func (scope *Scope) buildWhereCondition(clause map[string]interface{}) (str stri
 
 	args := clause["args"].([]interface{})
 	for _, arg := range args {
+		if valuer, ok := arg.(driver.Valuer); ok {
+			arg, _ = valuer.Value()
+			str = strings.Replace(str, "?", scope.AddToVars(arg), 1)
+
+			continue
+		}
+
 		switch reflect.ValueOf(arg).Kind() {
 		case reflect.Slice: // For where("id in (?)", []int64{1,2})
 			if bytes, ok := arg.([]byte); ok {
@@ -561,10 +573,6 @@ func (scope *Scope) buildWhereCondition(clause map[string]interface{}) (str stri
 				str = strings.Replace(str, "?", scope.AddToVars(Expr("NULL")), 1)
 			}
 		default:
-			if valuer, ok := interface{}(arg).(driver.Valuer); ok {
-				arg, _ = valuer.Value()
-			}
-
 			str = strings.Replace(str, "?", scope.AddToVars(arg), 1)
 		}
 	}
@@ -584,14 +592,14 @@ func (scope *Scope) buildNotCondition(clause map[string]interface{}) (str string
 			str = fmt.Sprintf(" NOT (%v) ", value)
 			notEqualSQL = fmt.Sprintf("NOT (%v)", value)
 		} else {
-			str = fmt.Sprintf("(%v.%v NOT IN (?))", scope.QuotedTableName(), scope.Quote(value))
-			notEqualSQL = fmt.Sprintf("(%v.%v <> ?)", scope.QuotedTableName(), scope.Quote(value))
+			str = fmt.Sprintf("(%v.%v NOT IN (?))", scope.TableAlias(), scope.Quote(value))
+			notEqualSQL = fmt.Sprintf("(%v.%v <> ?)", scope.TableAlias(), scope.Quote(value))
 		}
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, sql.NullInt64:
-		return fmt.Sprintf("(%v.%v <> %v)", scope.QuotedTableName(), scope.Quote(primaryKey), value)
+		return fmt.Sprintf("(%v.%v <> %v)", scope.TableAlias(), scope.Quote(primaryKey), value)
 	case []int, []int8, []int16, []int32, []int64, []uint, []uint8, []uint16, []uint32, []uint64, []string:
 		if reflect.ValueOf(value).Len() > 0 {
-			str = fmt.Sprintf("(%v.%v NOT IN (?))", scope.QuotedTableName(), scope.Quote(primaryKey))
+			str = fmt.Sprintf("(%v.%v NOT IN (?))", scope.TableAlias(), scope.Quote(primaryKey))
 			clause["args"] = []interface{}{value}
 		} else {
 			return ""
@@ -600,9 +608,9 @@ func (scope *Scope) buildNotCondition(clause map[string]interface{}) (str string
 		var sqls []string
 		for key, value := range value {
 			if value != nil {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", scope.QuotedTableName(), scope.Quote(key), scope.AddToVars(value)))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", scope.TableAlias(), scope.Quote(key), scope.AddToVars(value)))
 			} else {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v IS NOT NULL)", scope.QuotedTableName(), scope.Quote(key)))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v IS NOT NULL)", scope.TableAlias(), scope.Quote(key)))
 			}
 		}
 		return strings.Join(sqls, " AND ")
@@ -611,7 +619,7 @@ func (scope *Scope) buildNotCondition(clause map[string]interface{}) (str string
 		var newScope = scope.New(value)
 		for _, field := range newScope.Fields() {
 			if !field.IsBlank {
-				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", scope.QuotedTableName(), scope.Quote(field.DBName), scope.AddToVars(field.Field.Interface())))
+				sqls = append(sqls, fmt.Sprintf("(%v.%v <> %v)", scope.TableAlias(), scope.Quote(field.DBName), scope.AddToVars(field.Field.Interface())))
 			}
 		}
 		return strings.Join(sqls, " AND ")
@@ -672,7 +680,7 @@ func (scope *Scope) buildSelectQuery(clause map[string]interface{}) (str string)
 
 func (scope *Scope) whereSQL() (sql string) {
 	var (
-		quotedTableName                                = scope.QuotedTableName()
+		quotedTableName                                = scope.TableAlias()
 		deletedAtField, hasDeletedAtField              = scope.FieldByName("DeletedAt")
 		primaryConditions, andConditions, orConditions []string
 	)
@@ -731,7 +739,7 @@ func (scope *Scope) whereSQL() (sql string) {
 func (scope *Scope) selectSQL() string {
 	if len(scope.Search.selects) == 0 {
 		if len(scope.Search.joinConditions) > 0 {
-			return fmt.Sprintf("%v.*", scope.QuotedTableName())
+			return fmt.Sprintf("%v.*", scope.TableAlias())
 		}
 		return "*"
 	}
@@ -804,7 +812,12 @@ func (scope *Scope) prepareQuerySQL() {
 	if scope.Search.raw {
 		scope.Raw(scope.CombinedConditionSql())
 	} else {
-		scope.Raw(fmt.Sprintf("SELECT %v FROM %v %v", scope.selectSQL(), scope.QuotedTableName(), scope.CombinedConditionSql()))
+		var alias string
+		if len(scope.Search.tableAlias) > 0 {
+			alias = fmt.Sprintf(" AS %v", scope.TableAlias())
+		}
+
+		scope.Raw(fmt.Sprintf("SELECT %v FROM %v%v %v", scope.selectSQL(), scope.QuotedTableName(), alias, scope.CombinedConditionSql()))
 	}
 	return
 }

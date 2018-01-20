@@ -95,7 +95,7 @@ func createCallback(scope *Scope) {
 		} else {
 			scope.Raw(fmt.Sprintf(
 				"INSERT INTO %v (%v) VALUES (%v)%v%v",
-				scope.QuotedTableName(),
+				quotedTableName,
 				strings.Join(columns, ","),
 				strings.Join(placeholders, ","),
 				addExtraSpaceIfExist(extraOption),

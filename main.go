@@ -439,6 +439,11 @@ func (s *DB) Table(name string) *DB {
 	return clone
 }
 
+// As gives us a table alias
+func (s *DB) As(alias string) *DB {
+	return s.clone().search.As(alias).db
+}
+
 // Debug start debug mode
 func (s *DB) Debug() *DB {
 	return s.clone().LogMode(true)

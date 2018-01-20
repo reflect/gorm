@@ -25,7 +25,7 @@ func queryCallback(scope *Scope) {
 
 	if orderBy, ok := scope.Get("gorm:order_by_primary_key"); ok {
 		if primaryField := scope.PrimaryField(); primaryField != nil {
-			scope.Search.Order(fmt.Sprintf("%v.%v %v", scope.QuotedTableName(), scope.Quote(primaryField.DBName), orderBy))
+			scope.Search.Order(fmt.Sprintf("%v.%v %v", scope.TableAlias(), scope.Quote(primaryField.DBName), orderBy))
 		}
 	}
 

@@ -22,6 +22,7 @@ type search struct {
 	limit            interface{}
 	group            string
 	tableName        string
+	tableAlias       string
 	raw              bool
 	Unscoped         bool
 	ignoreOrderQuery bool
@@ -134,6 +135,11 @@ func (s *search) unscoped() *search {
 
 func (s *search) Table(name string) *search {
 	s.tableName = name
+	return s
+}
+
+func (s *search) As(alias string) *search {
+	s.tableAlias = alias
 	return s
 }
 
