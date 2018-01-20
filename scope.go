@@ -1163,6 +1163,21 @@ func (scope *Scope) addIndex(unique bool, indexName string, column ...string) {
 	scope.Raw(fmt.Sprintf("%s %v ON %v(%v) %v", sqlCreate, indexName, scope.QuotedTableName(), strings.Join(columns, ", "), scope.whereSQL())).Exec()
 }
 
+func (scope *Scope) addUniqueConstraint(constraintName string, deferrable bool, column ...string) {
+	var columns []string
+	for _, name := range column {
+		columns = append(columns, scope.quoteIfPossible(name))
+	}
+
+	var deferrableSQL string
+	if deferrable {
+		deferrableSQL = " DEFERRABLE INITIALLY IMMEDIATE"
+	}
+
+	sql := `ALTER TABLE %s ADD CONSTRAINT %s UNIQUE (%v)%s`
+	scope.Raw(fmt.Sprintf(sql, scope.QuotedTableName(), constraintName, strings.Join(columns, ", "), deferrableSQL)).Exec()
+}
+
 func (scope *Scope) addForeignKey(field string, dest string, onDelete string, onUpdate string) {
 	keyName := scope.Dialect().BuildForeignKeyName(scope.TableName(), field, dest)
 
@@ -1205,8 +1220,9 @@ type derivedIndex struct {
 
 func (scope *Scope) autoIndex() *Scope {
 	indexes := map[string]map[string]*derivedIndex{
-		"INDEX":        make(map[string]*derivedIndex),
-		"UNIQUE_INDEX": make(map[string]*derivedIndex),
+		"INDEX":                        make(map[string]*derivedIndex),
+		"UNIQUE_INDEX":                 make(map[string]*derivedIndex),
+		"UNIQUE_CONSTRAINT_DEFERRABLE": make(map[string]*derivedIndex),
 	}
 
 	derive := func(field *StructField, tag, prefix string) {
@@ -1265,6 +1281,7 @@ func (scope *Scope) autoIndex() *Scope {
 	for _, field := range scope.GetStructFields() {
 		derive(field, "INDEX", "idx")
 		derive(field, "UNIQUE_INDEX", "uix")
+		derive(field, "UNIQUE_CONSTRAINT_DEFERRABLE", "ucd")
 	}
 
 	for name, idx := range indexes["INDEX"] {
@@ -1273,6 +1290,10 @@ func (scope *Scope) autoIndex() *Scope {
 
 	for name, idx := range indexes["UNIQUE_INDEX"] {
 		idx.q.AddUniqueIndex(name, idx.columns...)
+	}
+
+	for name, idx := range indexes["UNIQUE_CONSTRAINT_DEFERRABLE"] {
+		idx.q.AddUniqueConstraint(name, true, idx.columns...)
 	}
 
 	return scope

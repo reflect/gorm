@@ -585,6 +585,13 @@ func (s *DB) AddUniqueIndex(indexName string, columns ...string) *DB {
 	return scope.db
 }
 
+// AddUniqueConstraint adds a unique constraint
+func (s *DB) AddUniqueConstraint(constraintName string, deferrable bool, columns ...string) *DB {
+	scope := s.Unscoped().NewScope(s.Value)
+	scope.addUniqueConstraint(constraintName, deferrable, columns...)
+	return scope.db
+}
+
 // RemoveIndex remove index with name
 func (s *DB) RemoveIndex(indexName string) *DB {
 	scope := s.clone().NewScope(s.Value)
