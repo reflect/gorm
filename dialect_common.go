@@ -106,6 +106,10 @@ func (s commonDialect) HasForeignKey(tableName string, foreignKeyName string) bo
 	return false
 }
 
+func (s commonDialect) HasConstraint(tableName string, constraintName string) bool {
+	return false
+}
+
 func (s commonDialect) HasTable(tableName string) bool {
 	var count int
 	s.db.QueryRow("SELECT count(*) FROM INFORMATION_SCHEMA.TABLES WHERE table_schema = ? AND table_name = ?", s.CurrentDatabase(), tableName).Scan(&count)

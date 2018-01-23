@@ -95,6 +95,12 @@ func (s postgres) HasForeignKey(tableName string, foreignKeyName string) bool {
 	return count > 0
 }
 
+func (s postgres) HasConstraint(tableName string, constraintName string) bool {
+	var count int
+	s.db.QueryRow("SELECT COUNT(conname) FROM pg_constraint WHERE contype IN ('u', 'c', 'p', 'x') AND conrelid = $1::regclass::oid and conname = $2", tableName, constraintName).Scan(&count)
+	return count > 0
+}
+
 func (s postgres) HasTable(tableName string) bool {
 	var count int
 	s.db.QueryRow("SELECT count(*) FROM INFORMATION_SCHEMA.tables WHERE table_name = $1 AND table_type = 'BASE TABLE'", tableName).Scan(&count)

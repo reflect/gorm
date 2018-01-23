@@ -1164,6 +1164,10 @@ func (scope *Scope) addIndex(unique bool, indexName string, column ...string) {
 }
 
 func (scope *Scope) addUniqueConstraint(constraintName string, deferrable bool, column ...string) {
+	if scope.Dialect().HasConstraint(scope.TableName(), constraintName) {
+		return
+	}
+
 	var columns []string
 	for _, name := range column {
 		columns = append(columns, scope.quoteIfPossible(name))
